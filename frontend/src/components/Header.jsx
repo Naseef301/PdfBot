@@ -6,7 +6,7 @@ export function Header({ theme, onToggleTheme }) {
       <a className="brand" href="/" aria-label="PDF RAG Assistant home">
         <span className="brand-mark"><FileSearch2 size={20} /></span>
         <span>
-          <strong>PDF</strong>
+          <strong>PdfBot</strong>
           <small>Assistant</small>
         </span>
       </a>
