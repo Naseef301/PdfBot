@@ -7,7 +7,7 @@
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_Store-FF4B4B?style=flat)
 ![HuggingFace](https://img.shields.io/badge/HuggingFace-all--mpnet--base--v2-FFD21E?style=flat&logo=huggingface&logoColor=black)
 ![Ollama](https://img.shields.io/badge/Ollama-llama3.2-FF6B35?style=flat)
-![License](https://img.shields.io/badge/License-MIT-22C55E?style=flat)
+
 
 > A locally-hosted, full-stack Retrieval-Augmented Generation (RAG) system. Implements multi-query expansion, hybrid sparse-dense retrieval, Reciprocal Rank Fusion, parent-child chunking, cross-encoder reranking, and stateful conversational memory — all running entirely on-device with no external API dependencies.
 
@@ -331,9 +331,3 @@ Normal Git behaviour on Windows. No action needed.
 ## Author
 
 Built by [Naseef301](https://github.com/Naseef301)
-
----
-
-## License
-
-MIT License
