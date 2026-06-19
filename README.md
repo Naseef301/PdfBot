@@ -1,312 +1,339 @@
-# 🤖 PdfBot — Local RAG PDF Chatbot
+# PdfBot — Production-Grade Local RAG System
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat&logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Async-009688?style=flat&logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-6.4-646CFF?style=flat&logo=vite&logoColor=white)
-![HuggingFace](https://img.shields.io/badge/HuggingFace-Embeddings-FFD21E?style=flat&logo=huggingface&logoColor=black)
-![LangChain](https://img.shields.io/badge/LangChain-Integrated-1C3C3C?style=flat)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_Store-FF4B4B?style=flat)
+![HuggingFace](https://img.shields.io/badge/HuggingFace-all--mpnet--base--v2-FFD21E?style=flat&logo=huggingface&logoColor=black)
+![Ollama](https://img.shields.io/badge/Ollama-llama3.2-FF6B35?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-22C55E?style=flat)
 
-> A fully local AI-powered PDF chatbot. Upload any PDF — ask anything. Every answer is grounded in your document. No cloud. No API fees. Your data never leaves your machine.
+> A locally-hosted, full-stack Retrieval-Augmented Generation (RAG) system. Implements multi-query expansion, hybrid sparse-dense retrieval, Reciprocal Rank Fusion, parent-child chunking, cross-encoder reranking, and stateful conversational memory — all running entirely on-device with no external API dependencies.
 
 ---
 
-## 📌 What Is This?
+## System Overview
 
-**PdfBot** is a full-stack **Retrieval-Augmented Generation (RAG)** chatbot built from scratch with a FastAPI backend and a Vite + React frontend. It lets you have intelligent conversations with your PDF documents — entirely on your local machine.
+PdfBot is a document-grounded QA system built on a FastAPI backend and a Vite/React frontend. The retrieval pipeline goes well beyond naive top-k similarity search — it combines sparse BM25 and dense vector retrieval across LLM-expanded query variants, fuses results using rank-based scoring, reconstructs parent-level context, and applies a neural cross-encoder reranker before passing context to the LLM.
 
-It implements advanced retrieval techniques beyond basic RAG:
-- **Hybrid retrieval** combining dense embeddings and BM25 keyword search
-- **Cross-encoder reranking** for precision document scoring
-- **LLM-based query rewriting** to handle follow-up questions
-- **Conversational memory** for multi-turn context-aware dialogue
-- **Background indexing** so the UI stays responsive during processing
+All inference and embedding runs locally via Ollama and HuggingFace `sentence-transformers`. No data leaves the machine.
 
 ---
 
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| 📄 PDF Upload | Upload any PDF — validated, size-limited (30 MB), background indexed |
-| 🔍 Hybrid Retrieval | Dense semantic search + BM25 keyword search combined |
-| 🎯 Cross-Encoder Reranking | Neural reranker scores every (query, doc) pair for precision |
-| 🔄 Query Rewriting | LLM resolves follow-ups and vague references automatically |
-| 🧠 Conversational Memory | Multi-turn dialogue with automatic context carry-over |
-| ⚡ Background Indexing | Document processing runs async — UI stays responsive |
-| 📎 Source Citations | Every answer shows the source document and page |
-| 🔒 Fully Local | No OpenAI, no external APIs — all on your machine |
-| 🌙 Dark / Light Mode | Theme toggle built into the UI |
-| 🏥 Health Endpoint | `/api/health` for easy status checks |
-
----
-
-## 🏗️ Architecture
+## Retrieval Pipeline
 
 ```
-User Question
+Raw User Query
       │
       ▼
-┌──────────────────┐
-│  Query Rewriting  │  ← LLM resolves follow-ups & ambiguous references
-└────────┬─────────┘
+┌─────────────────────┐
+│   Query Rewriting   │  ← LLM resolves coreferences and follow-up references
+│   (generateQuery)   │    using sliding conversation window (MEMORY_WINDOW=3)
+└────────┬────────────┘
          │
          ▼
-┌──────────────────────────────────────┐
-│        Hybrid Retrieval               │
-│  ┌─────────────┐  ┌───────────────┐  │
-│  │ Dense Vector│  │  BM25 Keyword │  │  ← Semantic + keyword search
-│  │ (embeddings)│  │    Search     │  │
-│  └──────┬──────┘  └──────┬────────┘  │
-│         └────────┬────────┘          │
-└──────────────────┼───────────────────┘
-                   ▼
-         ┌─────────────────┐
-         │  Cross-Encoder  │  ← Neural reranker scores every (query, doc) pair
-         │   Reranking     │
-         └────────┬────────┘
-                  ▼
-         ┌─────────────────┐
-         │  Conversation   │  ← Injects chat history for context-aware answers
-         │     Memory      │
-         └────────┬────────┘
-                  ▼
-         ┌─────────────────┐
-         │  LLM Answer     │  ← Generates grounded answer with cited sources
-         │  Generation     │
-         └────────┬────────┘
-                  ▼
-        Answer + Sources [page 1][page 4]
+┌─────────────────────┐
+│  Multi-Query        │  ← LLM generates MULTI_QUERY_COUNT=3 query variants
+│  Expansion          │    to increase recall across diverse phrasings
+└────────┬────────────┘
+         │
+    ┌────┴──── per query variant ────────────────┐
+    ▼                                            ▼
+┌─────────────┐                        ┌─────────────────┐
+│ Dense Search│  TOP_K_DENSE=10        │  BM25 Sparse    │  TOP_K_BM25=10
+│  ChromaDB   │  all-mpnet-base-v2     │  Search         │  NLTK stemming
+│  (child     │  cosine similarity     │  (child chunks) │  + stopword filter
+│   chunks)   │                        │                 │
+└──────┬──────┘                        └──────┬──────────┘
+       └──────────────┬────────────────────────┘
+                      ▼
+             ┌─────────────────┐
+             │  Reciprocal     │  ← RRF(K=60): rank-position fusion immune
+             │  Rank Fusion    │    to scale differences between BM25 logits
+             │  (RRF)          │    and cosine distances
+             └────────┬────────┘
+                      ▼
+             ┌─────────────────┐
+             │  Parent Chunk   │  ← Child chunks (400 tokens) map back to
+             │  Reconstruction │    parent chunks (1500 tokens) via parent_hash
+             └────────┬────────┘
+                      ▼
+             ┌─────────────────┐
+             │  Cross-Encoder  │  ← ms-marco-MiniLM-L-6-v2 scores each
+             │  Reranking      │    (query, document) pair; hard floor=-15.0
+             │  TOP_K_RERANK=5 │    filters deeply irrelevant results
+             └────────┬────────┘
+                      ▼
+             ┌─────────────────┐
+             │  LLM Generation │  ← llama3.2 via Ollama; grounded prompting
+             │  + Citations    │    with source + page metadata injected
+             └────────┬────────┘
+                      ▼
+            Cited Answer + Source Pages
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## Key Design Decisions
 
-### Backend
-| Component | Technology |
-|---|---|
-| API Server | FastAPI + Uvicorn |
-| PDF Parsing | LangChain + PyPDF |
-| Embeddings | HuggingFace Sentence Transformers |
-| Keyword Search | BM25 (rank-bm25) |
-| Reranker | Cross-Encoder (sentence-transformers) |
-| Query Rewriting | LLM-based (`generateQuery.py`) |
-| Memory | Custom conversation state (`memory.py`) |
-| Chunking | Custom chunking strategy (`chunk.py`) |
+### Parent-Child Chunking
+Documents are indexed at two granularities. **Child chunks** (400 tokens, 80 overlap) are used for retrieval — smaller chunks give higher-precision embedding matches. **Parent chunks** (1500 tokens, 200 overlap) are reconstructed post-retrieval and passed to the LLM — larger context windows reduce answer truncation and improve coherence.
 
-### Frontend
-| Component | Technology |
-|---|---|
-| Framework | React 18 |
-| Build Tool | Vite 6.4 |
-| Proxy | Vite dev proxy → FastAPI |
-| Styling | CSS with dark/light theme |
+### Reciprocal Rank Fusion
+BM25 logit scores and cosine distances are not numerically comparable. Rather than normalizing and weighting raw scores (fragile, domain-dependent), PdfBot uses RRF with K=60. Each document's fused score is computed as the sum of `1 / (K + rank)` across all ranked lists. This is order-preserving, scale-invariant, and proven to outperform linear score combination in TREC benchmarks.
+
+### Multi-Query Expansion
+A single query may miss relevant passages due to vocabulary mismatch. The LLM generates 3 alternative phrasings of the original query. Dense and BM25 searches run independently for each variant, producing up to 6 ranked lists that are then fused via RRF — significantly improving recall without retraining.
+
+### Cross-Encoder Reranking
+Bi-encoder retrieval (FAISS/ChromaDB) is fast but approximate. After RRF, a cross-encoder (`ms-marco-MiniLM-L-6-v2`) scores each (query, document) pair jointly, capturing fine-grained relevance signals that bi-encoders miss. Documents scoring below the hard floor logit of -15.0 are discarded before LLM context assembly.
 
 ---
 
-## 📁 Project Structure
+## Tech Stack
+
+### Backend
+| Component | Implementation |
+|---|---|
+| API Server | FastAPI + Uvicorn (async, background tasks) |
+| LLM Inference | Ollama — `llama3.2:latest` |
+| Vector Store | ChromaDB — `sentence-transformers/all-mpnet-base-v2` |
+| Sparse Retrieval | BM25 via `rank-bm25`, NLTK stemming + stopwords |
+| Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| Query Expansion | LLM multi-query via `generateQuery.py` |
+| PDF Parsing | LangChain `PyPDFLoader` + custom text cleaner |
+| Chunking | Parent-child chunking strategy (`chunk.py`) |
+| Memory | Sliding window conversation state (`memory.py`) |
+| File Validation | Magic byte check (`%PDF`), 30 MB size limit |
+
+### Frontend
+| Component | Implementation |
+|---|---|
+| Framework | React 18 + Vite 6.4 |
+| API Layer | Vite dev proxy → FastAPI at port 8000 |
+| State | Component-level React state (no Redux) |
+| Theming | CSS custom properties, dark/light toggle via `useTheme.js` |
+| Markdown | Rendered answer with source citation blocks |
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | Server liveness check |
+| `POST` | `/api/upload` | Upload PDF (multipart/form-data); returns `document_id`, async indexed |
+| `GET` | `/api/status/{document_id}` | Poll indexing status: `processing` → `ready` / `error` |
+| `POST` | `/api/query` | Submit question with `document_id`; returns `answer`, `sources`, metadata |
+
+**Query request body:**
+```json
+{
+  "question": "What are the key findings in section 3?",
+  "document_id": "<uuid-hex>",
+  "session_id": "<uuid-hex>",
+  "history": []
+}
+```
+
+**Query response:**
+```json
+{
+  "answer": "According to section 3...",
+  "sources": [{"source": "report.pdf", "page": 4}],
+  "metadata": {"document_id": "<uuid-hex>"}
+}
+```
+
+---
+
+## Project Structure
 
 ```
 PdfBot/
-│
-├── api.py               # FastAPI app — all endpoints & RAG pipeline
-├── main.py              # Core answer generation logic
-├── embedding.py         # Embedding model & vector store management
-├── bm25.py              # BM25 keyword search index
-├── chunk.py             # PDF chunking strategy
-├── retrival.py          # Hybrid retrieval pipeline
-├── rank.py              # Cross-encoder reranking
-├── generateQuery.py     # LLM query rewriting & expansion
-├── memory.py            # Conversation state management
-├── py_pdf.py            # PDF loading & text cleaning
-├── config.py            # Central configuration settings
+├── api.py               # FastAPI application — endpoints, background indexing, RAG orchestration
+├── main.py              # LLM answer generation, prompt assembly, citation extraction
+├── retrival.py          # Hybrid retrieval: multi-query, dense+BM25, RRF, parent reconstruction
+├── embedding.py         # ChromaDB vector store creation and loading
+├── bm25.py              # BM25 index creation, persistence, and search
+├── chunk.py             # Parent-child document chunking with metadata linkage
+├── rank.py              # Cross-encoder reranking with hard-floor filtering
+├── generateQuery.py     # LLM query rewriting and multi-query expansion
+├── memory.py            # Sliding-window conversation state management
+├── py_pdf.py            # PDF text extraction and whitespace/artefact cleaning
+├── config.py            # All tuneable hyperparameters in one place
 ├── .gitignore
 │
 └── frontend/
-    ├── vite.config.js
+    ├── vite.config.js   # Dev proxy: /api/* → http://127.0.0.1:8000
     ├── package.json
     └── src/
         ├── App.jsx
         ├── main.jsx
         ├── styles.css
         ├── components/
-        │   ├── ChatPanel.jsx        # Main chat interface
-        │   ├── ChatMessage.jsx      # Individual message rendering
-        │   ├── DocumentSidebar.jsx  # PDF upload & document list
-        │   ├── Header.jsx           # Top navigation bar
-        │   ├── Sources.jsx          # Source citation display
-        │   ├── Toast.jsx            # Notifications
-        │   └── UploadPanel.jsx      # PDF upload logic
-        ├── config/
-        │   └── api.js               # API base URL config
-        ├── hooks/
-        │   └── useTheme.js          # Dark/light mode hook
-        ├── services/
-        │   └── ragApi.js            # API calls to FastAPI backend
-        └── utils/
-            └── format.js            # Text formatting helpers
+        │   ├── ChatPanel.jsx        # Conversation thread, input handling
+        │   ├── ChatMessage.jsx      # Message rendering with markdown support
+        │   ├── DocumentSidebar.jsx  # Upload, status polling, document listing
+        │   ├── Header.jsx
+        │   ├── Sources.jsx          # Source citation chip rendering
+        │   ├── Toast.jsx            # Error / info notifications
+        │   └── UploadPanel.jsx      # File selection, validation, upload trigger
+        ├── config/api.js            # BASE_URL configuration
+        ├── hooks/useTheme.js        # Dark/light theme state hook
+        ├── services/ragApi.js       # Axios wrappers for all API endpoints
+        └── utils/format.js         # String and markdown formatting helpers
 ```
 
 ---
 
-## ⚙️ Installation
+## Configuration Reference
 
-### Prerequisites
+All hyperparameters are centralised in `config.py`:
+
+```python
+# LLM
+OLLAMA_MODEL = "llama3.2:latest"          # Swap for llama3.2:3b on higher VRAM
+
+# Embeddings & Vector Store
+EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
+CHROMA_PATH     = "vector/chroma_db"
+COLLECTION_NAME = "rag_documents"
+BM25_PATH       = "vector/bm25_index.pkl"
+
+# Chunking
+PARENT_CHUNK_SIZE    = 1500   # Tokens; passed to LLM for answer generation
+PARENT_CHUNK_OVERLAP = 200
+CHILD_CHUNK_SIZE     = 400    # Tokens; used for retrieval indexing
+CHILD_CHUNK_OVERLAP  = 80
+
+# Retrieval
+TOP_K_DENSE         = 10     # Dense results per query variant
+TOP_K_BM25          = 10     # BM25 results per query variant
+TOP_K_RERANK        = 5      # Final context docs sent to LLM
+MULTI_QUERY_COUNT   = 3      # Extra query variants (excluding original)
+MEMORY_WINDOW       = 3      # Conversation turns retained in prompt context
+
+# Reranking
+RERANKER_HARD_FLOOR = -15.0  # Cross-encoder logit below which doc is rejected
+```
+
+---
+
+## Installation
+
+### Requirements
 
 - Python 3.10+
-- Node.js 18+
-- npm
+- Node.js 18+ / npm
+- [Ollama](https://ollama.com/download) installed and running
 - Git
 
 ---
 
-### 1. Clone the Repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/Naseef301/PdfBot.git
 cd PdfBot
 ```
 
----
-
-### 2. Backend Setup
+### 2. Backend
 
 ```bash
-# Create virtual environment
 python -m venv .venv
 
-# Activate — Windows PowerShell
+# Windows PowerShell
 .\.venv\Scripts\Activate.ps1
 
-# Activate — macOS / Linux
+# macOS / Linux
 source .venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
----
-
-### 3. Frontend Setup
+### 3. Pull LLM
 
 ```bash
-cd frontend
-npm install
+ollama pull llama3.2
+```
+
+### 4. Frontend
+
+```bash
+cd frontend && npm install
 ```
 
 ---
 
-## 🚀 Running the Project
+## Running
 
-You need **two terminals** running at the same time.
+Requires **two concurrent terminals**.
 
-**Terminal 1 — FastAPI Backend:**
 ```bash
-cd PdfBot
-.\.venv\Scripts\Activate.ps1        # Windows
+# Terminal 1 — Backend
 python -m uvicorn api:app --reload --port 8000
+
+# Terminal 2 — Frontend
+cd frontend && npm run dev
 ```
 
-Backend runs at: `http://127.0.0.1:8000`
+Verify backend: `curl http://127.0.0.1:8000/api/health` → `{"status": "ok"}`
 
-**Terminal 2 — React Frontend:**
-```bash
-cd PdfBot/frontend
-npm run dev
-```
-
-Frontend runs at: `http://localhost:5173`
-
-Open your browser at **http://localhost:5173**
+Open: `http://localhost:5173`
 
 ---
 
-## 💡 How to Use
+## Troubleshooting
 
-1. **Upload** — Click "Upload PDF" in the sidebar and select your PDF
-2. **Wait** — The status changes to "ready" when indexing is complete
-3. **Ask** — Type your question in the chat box and press Enter
-4. **Read** — Answer appears with source citations showing which page the info came from
-5. **Follow up** — Ask follow-up questions; the bot remembers the conversation context
-
-### Example Questions
-```
-What is this document about?
-Summarize the key points
-What does section 3 say?
-Can you explain that in simpler terms?    ← follow-up remembered automatically
-```
-
----
-
-## 🔧 Configuration
-
-Key settings are in `config.py`:
-
-```python
-CHUNK_SIZE = 512          # Token size per chunk
-CHUNK_OVERLAP = 64        # Overlap between chunks
-TOP_K_DENSE = 10          # Dense retrieval results
-TOP_K_BM25 = 10           # BM25 keyword results
-TOP_K_RERANK = 5          # Final docs after reranking
-MEMORY_WINDOW = 4         # Conversation turns to remember
-# MAX_FILE_SIZE = 30 MB   # Upload size limit (set in api.py)
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Backend shuts down immediately / port 8000 in use
-
+**Port 8000 already in use:**
 ```powershell
-# Find what is using port 8000
 netstat -ano | findstr ":8000"
-
-# Kill the process (replace PID with the number you see)
 taskkill /PID <PID> /F
 ```
 
-Then restart the backend.
+**Frontend proxy error (`ECONNREFUSED 127.0.0.1:8000`):**  
+Backend must be running before frontend requests are made. Confirm health endpoint responds.
 
-### Frontend shows `ECONNREFUSED` or proxy error
-
-The backend must be running **before** or **at the same time** as the frontend. Both servers must be active in separate terminals. Check that `http://127.0.0.1:8000/api/health` returns `{"status":"ok"}` in your browser.
-
-### `LF will be replaced by CRLF` warnings on Windows
-
-These are normal Git warnings on Windows. They do not affect how the project runs and can be safely ignored.
-
-### PowerShell execution policy error
-
+**PowerShell execution policy:**
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 ```
 
-Run this once per terminal session before activating the virtual environment.
+**`LF will be replaced by CRLF` warnings:**  
+Normal Git behaviour on Windows. No action needed.
 
 ---
 
-## 🔮 Future Improvements
+## Known Limitations
 
-- [ ] Streaming responses (word-by-word answer display)
-- [ ] Support for DOCX and TXT files
-- [ ] Multi-document comparison and cross-document search
-- [ ] Document management (list, rename, delete individual docs)
-- [ ] Export chat history
-- [ ] Persistent vector store across sessions
-- [ ] Deploy with Docker
+- **Single-document active context** — uploading a new PDF replaces the existing vector store and BM25 index
+- **No streaming** — LLM response is returned in full after generation completes
+- **In-memory session state** — conversation history is lost on server restart
+- **English-optimised** — BM25 tokenisation and NLTK stopwords are tuned for English
+- **Single-user** — global document state; concurrent users would interfere
 
 ---
 
-## 🙌 Author
+## Roadmap
+
+- [ ] Streaming token output via SSE
+- [ ] Persistent session store (Redis / SQLite)
+- [ ] Multi-document simultaneous indexing and cross-document retrieval
+- [ ] DOCX / TXT / web page ingestion
+- [ ] Confidence score display per source citation
+- [ ] Docker Compose deployment
+- [ ] Groq API backend as a drop-in Ollama replacement for cloud option
+
+---
+
+## Author
 
 Built by [Naseef301](https://github.com/Naseef301)
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License.
+MIT License
