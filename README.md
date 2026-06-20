@@ -99,14 +99,10 @@ Bi-encoder retrieval (FAISS/ChromaDB) is fast but approximate. After RRF, a cros
 | API Server | FastAPI + Uvicorn (async, background tasks) |
 | LLM Inference | Ollama — `llama3.2:latest` |
 | Vector Store | ChromaDB — `sentence-transformers/all-mpnet-base-v2` |
-| Sparse Retrieval | BM25 via `rank-bm25`, NLTK stemming + stopwords |
+| Sparse Retrieval | BM25 via `rank-bm25`|
 | Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
-| Query Expansion | LLM multi-query via `generateQuery.py` |
-| PDF Parsing | LangChain `PyPDFLoader` + custom text cleaner |
+| PDF Parsing | LangChain `PyPDFLoader`|
 | Chunking | Parent-child chunking strategy (`chunk.py`) |
-| Memory | Sliding window conversation state (`memory.py`) |
-| File Validation | Magic byte check (`%PDF`), 30 MB size limit |
-
 ### Frontend
 | Component | Implementation |
 |---|---|
