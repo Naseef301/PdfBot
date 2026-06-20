@@ -198,47 +198,7 @@ cd frontend && npm install
 ```
 
 ---
-
-## Running
-
-Requires **two concurrent terminals**.
-
-```bash
-# Terminal 1 — Backend
-python -m uvicorn api:app --reload --port 8000
-
-# Terminal 2 — Frontend
-cd frontend && npm run dev
-```
-
-Verify backend: `curl http://127.0.0.1:8000/api/health` → `{"status": "ok"}`
-
-Open: `http://localhost:5173`
-
----
-
-## Troubleshooting
-
-**Port 8000 already in use:**
-```powershell
-netstat -ano | findstr ":8000"
-taskkill /PID <PID> /F
-```
-
-**Frontend proxy error (`ECONNREFUSED 127.0.0.1:8000`):**  
-Backend must be running before frontend requests are made. Confirm health endpoint responds.
-
-**PowerShell execution policy:**
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
-```
-
-**`LF will be replaced by CRLF` warnings:**  
-Normal Git behaviour on Windows. No action needed.
-
----
-
-## Known Limitations
+## Limitations
 
 - **Single-document active context** — uploading a new PDF replaces the existing vector store and BM25 index
 - **No streaming** — LLM response is returned in full after generation completes
@@ -248,7 +208,7 @@ Normal Git behaviour on Windows. No action needed.
 
 ---
 
-## Roadmap
+## Future Enhancements
 
 - [ ] Streaming token output via SSE
 - [ ] Persistent session store (Redis / SQLite)
@@ -256,7 +216,7 @@ Normal Git behaviour on Windows. No action needed.
 - [ ] DOCX / TXT / web page ingestion
 - [ ] Confidence score display per source citation
 - [ ] Docker Compose deployment
-- [ ] Groq API backend as a drop-in Ollama replacement for cloud option
+
 
 ---
 
