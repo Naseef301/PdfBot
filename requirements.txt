@@ -1,0 +1,30 @@
+# Web framework
+fastapi
+uvicorn[standard]
+
+# LangChain + documents
+langchain
+langchain-community
+langchain-core
+
+# PDF parsing
+pypdf
+python-magic  
+
+# Vector store & embeddings
+chromadb
+sentence-transformers
+
+# BM25 / classical retrieval
+rank-bm25
+nltk
+
+# ML stack
+torch
+numpy
+scikit-learn
+
+# Utilities
+requests
+pydantic
+python-dotenv
