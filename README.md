@@ -106,41 +106,10 @@ Bi-encoder retrieval (FAISS/ChromaDB) is fast but approximate. After RRF, a cros
 ### Frontend
 | Component | Implementation |
 |---|---|
-| Framework | React 18 + Vite 6.4 |
-| API Layer | Vite dev proxy → FastAPI at port 8000 |
-| State | Component-level React state (no Redux) |
-| Theming | CSS custom properties, dark/light toggle via `useTheme.js` |
-| Markdown | Rendered answer with source citation blocks |
+| Framework | React 18 |
+| API Layer | FastAPI  |
+| Markdown | React markdown|
 
----
-
-## API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/health` | Server liveness check |
-| `POST` | `/api/upload` | Upload PDF (multipart/form-data); returns `document_id`, async indexed |
-| `GET` | `/api/status/{document_id}` | Poll indexing status: `processing` → `ready` / `error` |
-| `POST` | `/api/query` | Submit question with `document_id`; returns `answer`, `sources`, metadata |
-
-**Query request body:**
-```json
-{
-  "question": "What are the key findings in section 3?",
-  "document_id": "<uuid-hex>",
-  "session_id": "<uuid-hex>",
-  "history": []
-}
-```
-
-**Query response:**
-```json
-{
-  "answer": "According to section 3...",
-  "sources": [{"source": "report.pdf", "page": 4}],
-  "metadata": {"document_id": "<uuid-hex>"}
-}
-```
 
 ---
 
