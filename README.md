@@ -153,39 +153,6 @@ PdfBot/
 
 ---
 
-## Configuration Reference
-
-All hyperparameters are centralised in `config.py`:
-
-```python
-# LLM
-OLLAMA_MODEL = "llama3.2:latest"          # Swap for llama3.2:3b on higher VRAM
-
-# Embeddings & Vector Store
-EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
-CHROMA_PATH     = "vector/chroma_db"
-COLLECTION_NAME = "rag_documents"
-BM25_PATH       = "vector/bm25_index.pkl"
-
-# Chunking
-PARENT_CHUNK_SIZE    = 1500   # Tokens; passed to LLM for answer generation
-PARENT_CHUNK_OVERLAP = 200
-CHILD_CHUNK_SIZE     = 400    # Tokens; used for retrieval indexing
-CHILD_CHUNK_OVERLAP  = 80
-
-# Retrieval
-TOP_K_DENSE         = 10     # Dense results per query variant
-TOP_K_BM25          = 10     # BM25 results per query variant
-TOP_K_RERANK        = 5      # Final context docs sent to LLM
-MULTI_QUERY_COUNT   = 3      # Extra query variants (excluding original)
-MEMORY_WINDOW       = 3      # Conversation turns retained in prompt context
-
-# Reranking
-RERANKER_HARD_FLOOR = -15.0  # Cross-encoder logit below which doc is rejected
-```
-
----
-
 ## Installation
 
 ### Requirements
