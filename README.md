@@ -155,6 +155,9 @@ PdfBot/
 
 ## Screenshots
 ![home](screenshot/home.png)
+
+![home](screenshot/upload.png)
+![home](screenshot/chat.png)
 ## Installation
 
 ### Requirements
