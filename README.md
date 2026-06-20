@@ -101,7 +101,7 @@ Bi-encoder retrieval (FAISS/ChromaDB) is fast but approximate. After RRF, a cros
 | Vector Store | ChromaDB — `sentence-transformers/all-mpnet-base-v2` |
 | Sparse Retrieval | BM25 via `rank-bm25`|
 | Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
-| PDF Parsing | LangChain `PyPDFLoader`|
+| PDF Parsing | LangChain `PyPDF`|
 | Chunking | Parent-child chunking strategy (`chunk.py`) |
 ### Frontend
 | Component | Implementation |
