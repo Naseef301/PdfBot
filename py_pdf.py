@@ -46,7 +46,7 @@ def clean_text(text: str) -> str:
 
 def clean_pdf(uploaded_files) -> List[Document]:
     """
-    Load and clean a list of PDF file objects (from Flask request.files).
+    Load and clean a list of PDF file objects .
 
     Returns a flat list of Document objects, one per page, with metadata:
         - source: original filename
