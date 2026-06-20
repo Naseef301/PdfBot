@@ -29,7 +29,7 @@ Raw User Query
       ▼
 ┌─────────────────────┐
 │   Query Rewriting   │  ← LLM resolves coreferences and follow-up references
-│   (generateQuery)   │    using sliding conversation window (MEMORY_WINDOW=3)
+│   (generateQuery)   │    using sliding conversation window
 └────────┬────────────┘
          │
          ▼
@@ -41,15 +41,15 @@ Raw User Query
     ┌────┴──── per query variant ────────────────┐
     ▼                                            ▼
 ┌─────────────┐                        ┌─────────────────┐
-│ Dense Search│  TOP_K_DENSE=10        │  BM25 Sparse    │  TOP_K_BM25=10
-│  ChromaDB   │  all-mpnet-base-v2     │  Search         │  NLTK stemming
-│  (child     │  cosine similarity     │  (child chunks) │  + stopword filter
+│ Dense Search│                        │  BM25 Sparse    │  Dense and BM25 search
+│  ChromaDB   │                        │  Search         │  find their top 10 results
+│  (child     │                        │  (child chunks) │  then combine them
 │   chunks)   │                        │                 │
 └──────┬──────┘                        └──────┬──────────┘
        └──────────────┬────────────────────────┘
                       ▼
              ┌─────────────────┐
-             │  Reciprocal     │  ← RRF(K=60): rank-position fusion immune
+             │  Reciprocal     │  ← rank-position fusion immune
              │  Rank Fusion    │    to scale differences between BM25 logits
              │  (RRF)          │    and cosine distances
              └────────┬────────┘
@@ -61,16 +61,16 @@ Raw User Query
                       ▼
              ┌─────────────────┐
              │  Cross-Encoder  │  ← ms-marco-MiniLM-L-6-v2 scores each
-             │  Reranking      │    (query, document) pair; hard floor=-15.0
-             │  TOP_K_RERANK=5 │    filters deeply irrelevant results
+             │  Reranking      │    (query, document) pair and keep top 5 
+             │  TOP_K_RERANK=5 │    deeply relevant results
              └────────┬────────┘
                       ▼
              ┌─────────────────┐
-             │  LLM Generation │  ← llama3.2 via Ollama; grounded prompting
+             │  LLM Generation │  ← llama3.2 via Ollama grounded answer
              │  + Citations    │    with source + page metadata injected
              └────────┬────────┘
                       ▼
-            Cited Answer + Source Pages
+             Answer + Source Pages
 ```
 
 ---
