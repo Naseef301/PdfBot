@@ -153,6 +153,8 @@ PdfBot/
 
 ---
 
+## Screenshots
+![home](screenshot/home.png)
 ## Installation
 
 ### Requirements
